@@ -1,0 +1,73 @@
+.calc {
+    flex: 2;
+    margin: 10px;
+    background-color: lightgray;
+    border: 1px solid black;
+    box-shadow: 5px 5px 5px grey;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+  
+.mainbody.hidden {
+    display: none;
+}
+
+.mainbody {
+    flex: 7;
+    border-style: hidden groove groove groove;
+    // background-color: gray;
+    display: flex;
+    flex-direction: row;
+}
+
+.column {
+    width: 50%;
+    flex: 1;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.inputField {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin: 10px 0;
+}
+
+.inputField .extendedinput {
+    box-sizing: border-box;
+    flex: 1 1 194px;
+    margin: 3px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.extendedinput span {
+    background-color: lightblue;
+    padding: 0 5px;
+}
+
+.extendedinput input {
+    flex: auto;
+    text-align: right;
+}
+
+.inputField select {
+    flex: 1 1 194px;
+    margin: 3px;
+    border-width: 2px;
+    padding: 0 2px;
+}
+
+.inputField .inputFieldLabel {
+    flex: 1 1 15ch;
+    margin: 3px;
+}
+
+.errorMessage{
+    color:red;
+    font-weight: bold;
+}

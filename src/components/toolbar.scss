@@ -1,0 +1,28 @@
+.toolbar {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+.tabbutton {
+    width: 50%;
+    height: 20px;
+    text-align: center;
+    padding: 5px;
+    border-style: groove;
+    margin: 5px 0 0;
+    -moz-user-select: none; 
+    -webkit-user-select: none; 
+    -ms-user-select:none; 
+    user-select:none;
+    -o-user-select:none;
+}
+
+.tabbutton.pressed {
+    background-color: MediumSeaGreen;
+}
+
+.tabbutton.pressed.pageview {
+    border-style: groove groove hidden groove;
+}

@@ -1,0 +1,17 @@
+.infoCard {
+  flex: 1;
+  margin: 10px;
+  background-color: lightgray;
+  border: 1px solid black;
+  box-shadow: 5px 5px 5px grey;
+  padding: 10px;
+}
+
+.infoCard span {
+  float: right;
+  font-weight: bold;
+}
+
+h1 .error{
+  color: red;
+}
