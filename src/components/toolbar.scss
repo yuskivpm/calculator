@@ -19,6 +19,10 @@
     -o-user-select:none;
 }
 
+.tabbutton:hover, .tabbutton:focus {
+    background-color: #999999;
+}
+
 .tabbutton.pressed {
     background-color: MediumSeaGreen;
 }

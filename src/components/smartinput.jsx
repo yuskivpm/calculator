@@ -4,7 +4,19 @@ import WrappedHeader from './wrappedheader';
 
 export default class SmartInput extends React.Component {
   smartInputNode = () => {
-    const { id, name, placeholder, defvalue, maskStart, maskEnd, onChange } = this.props;
+    const {
+      id,
+      name,
+      placeholder,
+      defvalue,
+      maskStart,
+      maskEnd,
+      onChange,
+      max,
+      min,
+      pattern,
+      inputType,
+    } = this.props;
     return (
       <div className="extendedinput">
         {maskStart && (
@@ -13,12 +25,15 @@ export default class SmartInput extends React.Component {
           </span>
         )}
         <input
-          type="text"
+          type={inputType}
           value={defvalue}
           name={name}
           id={id}
           placeholder={placeholder}
           onChange={onChange}
+          pattern={pattern}
+          max={max}
+          min={min}
         />
         {maskEnd && (
           <span className="maskEnd" htmlFor={id}>
@@ -52,11 +67,19 @@ SmartInput.propTypes = {
   maskStart: PropTypes.string,
   maskEnd: PropTypes.string,
   onChange: PropTypes.func.isRequired,
+  pattern: PropTypes.string,
+  inputType: PropTypes.string,
+  max: PropTypes.string,
+  min: PropTypes.string,
 };
 
 SmartInput.defaultProps = {
+  inputType: 'text',
   placeholder: '',
   maskStart: '',
   maskEnd: '',
   defvalue: '',
+  pattern: '.*',
+  max: '',
+  min: '',
 };

@@ -16,7 +16,6 @@
 .mainbody {
     flex: 7;
     border-style: hidden groove groove groove;
-    // background-color: gray;
     display: flex;
     flex-direction: row;
 }
@@ -70,4 +69,8 @@
 .errorMessage{
     color:red;
     font-weight: bold;
+}
+
+.extendedinput input:invalid {
+    background-color: red;
 }

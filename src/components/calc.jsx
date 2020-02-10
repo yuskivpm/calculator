@@ -9,6 +9,7 @@ import './calc.scss';
 
 const DEBOUNCE_DELAY = 300;
 const calcDefaultStorageName = 'calcDefaults';
+const REGEXP_NUMBERS_ONLY = '^[0-9]+(?:[.][0-9]{1,2})?$';
 const compareFloat = (first, second) => Math.trunc(first * 100) === Math.trunc(second * 100);
 const isEqualArrays = (first, second) =>
   first.every((el, index) => compareFloat(el, second[index]));
@@ -31,12 +32,19 @@ export default class CalcBody extends React.Component {
   }
 
   componentDidMount() {
-    const { postcode, isLoaded } = this.state;
-    if (!postcode) {
+    const { postcodeLoan, postcodeLease, isLoaded } = this.state;
+    if (!postcodeLoan || !postcodeLease) {
       dataProviderApi.promiseForMe(dataProviderApi.fetchPostCode, receivedPostCode => {
-        const { postcode: postcodeLocal } = this.state;
-        if (!postcodeLocal && receivedPostCode) {
-          this.setState({ postcode: receivedPostCode });
+        const { postcodeLoan: postcodeLoanLocal, postcodeLease: postcodeLeaseLocal } = this.state;
+        if (receivedPostCode && (!postcodeLoanLocal || !postcodeLeaseLocal)) {
+          const newState = {};
+          if (!postcodeLoanLocal) {
+            newState.postcodeLoanLocal = receivedPostCode;
+          }
+          if (!postcodeLeaseLocal) {
+            newState.postcodeLeaseLocal = receivedPostCode;
+          }
+          this.setState(newState);
         }
       });
     }
@@ -138,12 +146,12 @@ export default class CalcBody extends React.Component {
   };
 
   sendUpdatesToParent = () => {
-    const { activePageIndex, payment, postcode } = this.state;
+    const { activePageIndex, payment, postcodeLoan, postcodeLease } = this.state;
     const { onChange } = this.props;
     onChange({
       payment: payment[activePageIndex],
     });
-    this.calculateTaxes(postcode);
+    this.calculateTaxes(activePageIndex === 0 ? postcodeLoan : postcodeLease);
   };
 
   onToolButtonClick = (event, index) => {
@@ -152,9 +160,10 @@ export default class CalcBody extends React.Component {
       this.setState({ [indexAttribute]: index });
       if (indexAttribute === 'activePageIndex') {
         // on Loan/Lease page change - set to App size of alculated payment for saving in infoCard
-        const { payment } = this.state;
+        const { payment, postcodeLoan, postcodeLease } = this.state;
         const { onChange } = this.props;
         onChange({ payment: payment[index] });
+        this.calculateTaxes(index === 0 ? postcodeLoan : postcodeLease);
       }
     }
   };
@@ -168,7 +177,7 @@ export default class CalcBody extends React.Component {
       this.setState({ [name]: valueAsIndex });
     } else {
       this.setState({ [name]: value });
-      if (name === 'postcode') {
+      if (name.startsWith('postcode')) {
         this.calculateTaxes(value);
       }
     }
@@ -189,6 +198,7 @@ export default class CalcBody extends React.Component {
       infoCardError,
       payment,
       currency = '$',
+      msrp,
       // loan=0, Lease=1
       activePageIndex,
       // shared loan&lease
@@ -197,7 +207,8 @@ export default class CalcBody extends React.Component {
       activeCreditScoreIndex,
       activeCreditScoreIndexArray,
       // loan
-      postcode = '',
+      postcodeLoan = '',
+      postcodeLease = '',
       activeLoanTermIndex,
       activeLoanTermIndexArray,
       apr,
@@ -207,6 +218,7 @@ export default class CalcBody extends React.Component {
       activeMileagesIndex,
       activeMileagesIndexArray,
     } = this.state;
+    const quarterMsrp = msrp / 4;
     const { msrp: propsMsrp } = this.props;
     let calculationError;
     const errorDiv =
@@ -238,10 +250,10 @@ export default class CalcBody extends React.Component {
             <div className="column">
               <SmartInput
                 id="postcodeloan"
-                name="postcode"
+                name="postcodeLoan"
                 text="Post Code"
                 placeholder="Enter post code"
-                defvalue={postcode}
+                defvalue={postcodeLoan}
                 onChange={this.onInputChange}
               />
               <SmartInput
@@ -252,6 +264,9 @@ export default class CalcBody extends React.Component {
                 defvalue={tradein}
                 maskStart={currency}
                 onChange={this.onInputChange}
+                inputType="number"
+                pattern={REGEXP_NUMBERS_ONLY}
+                max={quarterMsrp}
               />
               <SmartInput
                 id="downpaymentloan"
@@ -261,6 +276,9 @@ export default class CalcBody extends React.Component {
                 defvalue={downpayment}
                 maskStart={currency}
                 onChange={this.onInputChange}
+                inputType="number"
+                pattern={REGEXP_NUMBERS_ONLY}
+                max={quarterMsrp}
               />
               <SmartInput
                 id="apr"
@@ -270,6 +288,8 @@ export default class CalcBody extends React.Component {
                 defvalue={apr}
                 maskEnd="%"
                 onChange={this.onInputChange}
+                inputType="number"
+                pattern={REGEXP_NUMBERS_ONLY}
               />
               <ToolBar
                 buttonNames={activeLoanTermIndexArray}
@@ -295,10 +315,10 @@ export default class CalcBody extends React.Component {
             <div className="column">
               <SmartInput
                 id="postcodelease"
-                name="postcode"
+                name="postcodeLease"
                 text="Post Code"
                 placeholder="Enter post code"
-                defvalue={postcode}
+                defvalue={postcodeLease}
                 onChange={this.onInputChange}
               />
               <SmartInput
@@ -309,6 +329,9 @@ export default class CalcBody extends React.Component {
                 defvalue={tradein}
                 maskStart={currency}
                 onChange={this.onInputChange}
+                inputType="number"
+                pattern={REGEXP_NUMBERS_ONLY}
+                max={quarterMsrp}
               />
               <SmartInput
                 id="downpaymentlease"
@@ -318,6 +341,9 @@ export default class CalcBody extends React.Component {
                 defvalue={downpayment}
                 maskStart={currency}
                 onChange={this.onInputChange}
+                inputType="number"
+                pattern={REGEXP_NUMBERS_ONLY}
+                max={quarterMsrp}
               />
             </div>
             <div className="column">
