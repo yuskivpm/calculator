@@ -5,9 +5,12 @@
   border: 1px solid black;
   box-shadow: 5px 5px 5px grey;
   padding: 10px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
 }
 
-.infoCard span {
+.infoCard .values {
   float: right;
   font-weight: bold;
 }

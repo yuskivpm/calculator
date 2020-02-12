@@ -28,17 +28,17 @@ export default function InfoCard(props) {
       <React.Fragment key="InfoCard">
         <p className="msrp">
           MSRP
-          <span>{dataProviderApi.getPayment(msrp, currency)}</span>
+          <Spinner className="values">{dataProviderApi.getPayment(msrp, currency)}</Spinner>
         </p>
         <p className="vehicle">{vehicleName}</p>
         <hr />
         <p className="payment">
           Monthly payment
-          <span>{dataProviderApi.getPayment(payment, currency)}</span>
+          <Spinner className="values">{dataProviderApi.getPayment(payment, currency)}</Spinner>
         </p>
         <p className="taxes">
           Taxes
-          <span>{taxes}</span>
+          <Spinner className="values">{taxes}</Spinner>
         </p>
         <hr />
         <p className="dealername">{dealerName}</p>

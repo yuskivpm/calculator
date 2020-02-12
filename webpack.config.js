@@ -23,6 +23,17 @@ const config = {
         loader: 'eslint-loader'
       },
       {
+        test: /\.(png|svg|jpg|gif)$/,
+        use: [
+          {
+            loader: 'url-loader',
+            options: {
+              limit: 8192
+            }
+          }
+        ]
+      },
+      {
         test: /\.(css|scss|sass)$/,
         exclude: /\.module\.(css|scss|sass)$/,
         use: [

@@ -10,149 +10,32 @@ import './calc.scss';
 const DEBOUNCE_DELAY = 300;
 const calcDefaultStorageName = 'calcDefaults';
 const REGEXP_NUMBERS_ONLY = '^[0-9]+(?:[.][0-9]{1,2})?$';
-const compareFloat = (first, second) => Math.trunc(first * 100) === Math.trunc(second * 100);
-const isEqualArrays = (first, second) =>
-  first.every((el, index) => compareFloat(el, second[index]));
+const emptyFunc = () => null;
 
 export default class CalcBody extends React.Component {
   constructor(props) {
     super(props);
-    const storedData = sessionStorage.getItem(calcDefaultStorageName);
-    this.deferredCalculation = dataProviderApi.debounce(
-      () => dataProviderApi.promiseForMe(() => this.recalculatePayment(this.state)),
-      DEBOUNCE_DELAY
-    );
-    if (storedData) {
-      this.state = JSON.parse(storedData);
-      this.state.errorMessage = '';
-      this.state.infoCardError = '';
-    } else {
-      this.state = {};
-    }
+    this.deferredCalculation = dataProviderApi.debounce(() => {
+      dataProviderApi.promiseForMe(() => this.recalculatePayment(this.state));
+    }, DEBOUNCE_DELAY);
+    this.state = {};
   }
 
   componentDidMount() {
-    const { postcodeLoan, postcodeLease, isLoaded } = this.state;
-    if (!postcodeLoan || !postcodeLease) {
-      dataProviderApi.promiseForMe(dataProviderApi.fetchPostCode, receivedPostCode => {
-        const { postcodeLoan: postcodeLoanLocal, postcodeLease: postcodeLeaseLocal } = this.state;
-        if (receivedPostCode && (!postcodeLoanLocal || !postcodeLeaseLocal)) {
-          const newState = {};
-          if (!postcodeLoanLocal) {
-            newState.postcodeLoanLocal = receivedPostCode;
-          }
-          if (!postcodeLeaseLocal) {
-            newState.postcodeLeaseLocal = receivedPostCode;
-          }
-          this.setState(newState);
-        }
-      });
+    if (!this.isStoredInfoCardLoaded()) {
+      this.loadDefaultInfoCard();
     }
-    if (!isLoaded) {
-      setTimeout(() => {
-        dataProviderApi.promiseForMe(
-          dataProviderApi.fetchCalcDefaults,
-          calcDefaults => {
-            this.setState(calcDefaults);
-            this.sendUpdatesToParent();
-          },
-          err =>
-            this.setState({
-              infoCardError:
-                err && err.infoCardError ? err.infoCardError : '0Fail fetching calc defaults',
-            })
-        );
-      }, 2000);
-    } else {
-      this.sendUpdatesToParent();
-    }
+    this.loadPostCode();
   }
 
   componentDidUpdate() {
-    this.deferredCalculation();
+    const { recalculate } = this.state;
+    if (recalculate) {
+      this.state.recalculate = false;
+      this.saveToStorage();
+      this.deferredCalculation();
+    }
   }
-
-  recalculatePayment = realState => {
-    const errorArray = this.validateData();
-    if (errorArray.length) {
-      return;
-    }
-    const {
-      msrp = -1,
-      payment,
-      // loan=0, Lease=1
-      activePageIndex,
-      // shared loan&lease
-      tradein,
-      downpayment,
-      activeCreditScoreIndex,
-      activeCreditScoreIndexArray,
-      creditScoreValue,
-      // loan
-      activeLoanTermIndex,
-      activeLoanTermIndexArray,
-      apr,
-      // lease
-      activeLeaseTermIndex,
-      activeLeaseTermIndexArray,
-      activeMileagesIndex,
-      activeMileagesIndexArray,
-    } = realState;
-    const currentCreditScore = activeCreditScoreIndexArray[activeCreditScoreIndex];
-    const realCreditScoreValue = creditScoreValue.find(
-      ({ minScore }) => minScore <= currentCreditScore
-    ).creditScoreValue;
-    // - monthly payment loan: ```(msrp - tradeIn - downPayment) * / term * creditScoreValue * apr```
-    const loan =
-      (((msrp - tradein - downpayment) / activeLoanTermIndexArray[activeLoanTermIndex]) *
-        realCreditScoreValue *
-        apr) /
-      100;
-    // - monthly payment lease: ```(msrp - tradeIn - downPayment) * mileage / 10000 / term * creditScoreValue```
-    const lease =
-      (((msrp - tradein - downpayment) * activeMileagesIndexArray[activeMileagesIndex]) /
-        10000 /
-        activeLeaseTermIndexArray[activeLeaseTermIndex]) *
-      realCreditScoreValue;
-    const newPayment = [loan, lease];
-    if (!isEqualArrays(payment, newPayment)) {
-      this.setState({ payment: newPayment });
-      const { onChange } = this.props;
-      onChange({ payment: newPayment[activePageIndex] });
-    }
-  };
-
-  saveToStorage = () => sessionStorage.setItem(calcDefaultStorageName, JSON.stringify(this.state));
-
-  calculateTaxes = postcode => {
-    const { onChange } = this.props;
-    dataProviderApi.promiseForMe(() => dataProviderApi.fetchTaxes(postcode, onChange));
-  };
-
-  validateData = () => {
-    const errorText = [];
-    const { activePageIndex, tradein, downpayment, apr, msrp } = this.state;
-    const quarterMsrp = msrp / 4;
-    if (Number.isNaN(+downpayment) || downpayment < 0 || downpayment > quarterMsrp) {
-      errorText.push('1Down Payment should be within [0 - 1/4] of MSRP');
-    }
-    if (Number.isNaN(+tradein) || tradein < 0 || tradein > quarterMsrp) {
-      errorText.push('2Trade-In should be within [0 - 1/4] of MSRP');
-    }
-    if (activePageIndex === 0 && (Number.isNaN(+apr) || apr < 0)) {
-      errorText.push('3APR can not be less than 0');
-    }
-    return errorText;
-  };
-
-  sendUpdatesToParent = () => {
-    const { activePageIndex, payment, postcodeLoan, postcodeLease } = this.state;
-    const { onChange } = this.props;
-    onChange({
-      payment: payment[activePageIndex],
-    });
-    this.calculateTaxes(activePageIndex === 0 ? postcodeLoan : postcodeLease);
-  };
 
   onToolButtonClick = (event, index) => {
     const indexAttribute = event.target.parentElement.getAttribute('index');
@@ -161,9 +44,10 @@ export default class CalcBody extends React.Component {
       if (indexAttribute === 'activePageIndex') {
         // on Loan/Lease page change - set to App size of alculated payment for saving in infoCard
         const { payment, postcodeLoan, postcodeLease } = this.state;
-        const { onChange } = this.props;
-        onChange({ payment: payment[index] });
+        this.sendPayment(payment[index]);
         this.calculateTaxes(index === 0 ? postcodeLoan : postcodeLease);
+      } else {
+        this.state.recalculate = true;
       }
     }
   };
@@ -179,8 +63,10 @@ export default class CalcBody extends React.Component {
       this.setState({ [name]: value });
       if (name.startsWith('postcode')) {
         this.calculateTaxes(value);
+        return;
       }
     }
+    this.state.recalculate = true;
   };
 
   generateErrorDiv = errArray =>
@@ -192,48 +78,156 @@ export default class CalcBody extends React.Component {
       </div>
     );
 
-  render() {
-    const {
-      isLoaded,
-      infoCardError,
-      payment,
-      currency = '$',
-      msrp,
-      // loan=0, Lease=1
-      activePageIndex,
-      // shared loan&lease
-      tradein,
-      downpayment,
-      activeCreditScoreIndex,
-      activeCreditScoreIndexArray,
-      // loan
-      postcodeLoan = '',
-      postcodeLease = '',
-      activeLoanTermIndex,
-      activeLoanTermIndexArray,
-      apr,
-      // lease
-      activeLeaseTermIndex,
-      activeLeaseTermIndexArray,
-      activeMileagesIndex,
-      activeMileagesIndexArray,
-    } = this.state;
+  validateData = () => {
+    const errorText = [];
+    const { activePageIndex, tradein, downpayment, apr, msrp } = this.state;
     const quarterMsrp = msrp / 4;
-    const { msrp: propsMsrp } = this.props;
+    if (Number.isNaN(+downpayment) || downpayment < 0 || downpayment > quarterMsrp) {
+      errorText.push('1Down Payment should be within [0 - 1/4] of MSRP');
+    }
+    if (Number.isNaN(+tradein) || tradein < 0 || tradein > quarterMsrp) {
+      errorText.push('2Trade-In should be within [0 - 1/4] of MSRP');
+    }
+    if (activePageIndex === 0 && (Number.isNaN(+apr) || apr <= 0)) {
+      errorText.push('3APR should be greater than 0');
+    }
+    return errorText;
+  };
+
+  isStoredInfoCardLoaded = () => {
+    const storedData = sessionStorage.getItem(calcDefaultStorageName);
+    if (storedData) {
+      const newState = JSON.parse(storedData);
+      this.setState({ ...newState, infoCardError: '', recalculate: true });
+      return true;
+    }
+    return false;
+  };
+
+  loadDefaultInfoCard = () => {
+    // Load default values. The pause timer is used solely to demonstrate the spinner.
+    dataProviderApi.fetchWithPause(
+      // normally used - promiseForMe () instead of fetchWithPause
+      dataProviderApi.fetchCalcDefaults,
+      calcDefaults => {
+        this.setState(calcDefaults);
+        this.state.recalculate = true;
+      },
+      err =>
+        this.setState({
+          infoCardError:
+            err && err.infoCardError ? err.infoCardError : '0Fail fetching calc defaults',
+        })
+    );
+  };
+
+  loadPostCode = () => {
+    const { postcodeLoan, postcodeLease } = this.state;
+    if (!postcodeLoan || !postcodeLease) {
+      dataProviderApi.promiseForMe(dataProviderApi.fetchPostCode, receivedPostCode => {
+        const {
+          postcodeLoan: postcodeLoanLocal,
+          postcodeLease: postcodeLeaseLocal,
+          activePageIndex,
+        } = this.state;
+        if (receivedPostCode && (!postcodeLoanLocal || !postcodeLeaseLocal)) {
+          const newState = {};
+          if (!postcodeLoanLocal) {
+            newState.postcodeLoan = receivedPostCode;
+          }
+          if (!postcodeLeaseLocal) {
+            newState.postcodeLease = receivedPostCode;
+          }
+          this.setState(newState);
+          this.calculateTaxes(
+            activePageIndex === 0 ? newState.postcodeLoan : newState.postcodeLease
+          );
+        } else {
+          this.calculateTaxes(activePageIndex === 0 ? postcodeLoanLocal : postcodeLeaseLocal);
+        }
+      });
+    }
+  };
+
+  calculateTaxes = postcode => {
+    const { onChange } = this.props;
+    onChange({ taxes: null });
+    dataProviderApi.fetchWithPause(
+      () => dataProviderApi.fetchTaxes(postcode, onChange),
+      emptyFunc,
+      emptyFunc,
+      DEBOUNCE_DELAY
+    );
+  };
+
+  recalculatePayment = realState => {
+    this.state.recalculate = false;
+    const errorArray = this.validateData();
+    if (errorArray.length) {
+      return;
+    }
+    // send empty payment to draw spiner
+    this.sendPayment(null);
+    const prepareCalculationData = JSON.stringify(realState);
+    dataProviderApi.fetchWithPause(
+      () => dataProviderApi.calculatePayment(prepareCalculationData),
+      newPaymentAsArray => {
+        this.setState({ payment: newPaymentAsArray });
+        this.sendPayment();
+      },
+      emptyFunc,
+      DEBOUNCE_DELAY
+    );
+  };
+
+  sendPayment = (paymentValue = undefined) => {
+    const { activePageIndex, payment } = this.state;
+    const { onChange } = this.props;
+    onChange({ payment: paymentValue === undefined ? payment[activePageIndex] : paymentValue });
+  };
+
+  saveToStorage = () => sessionStorage.setItem(calcDefaultStorageName, JSON.stringify(this.state));
+
+  render() {
+    const { isLoaded, infoCardError } = this.state;
     let calculationError;
     const errorDiv =
       infoCardError && infoCardError.length > 0 && this.generateErrorDiv([infoCardError]);
-    let children;
+    let mainBody;
+    const { msrp: propsMsrp } = this.props;
     if (!isLoaded || !propsMsrp) {
-      children = <Spinner />;
+      mainBody = <Spinner />;
     } else {
-      calculationError = this.generateErrorDiv(this.validateData());
-      const { msrp: stateMsrp } = this.state;
+      const {
+        payment,
+        currency = '$',
+        msrp: stateMsrp,
+        // loan=0, Lease=1
+        activePageIndex,
+        // shared loan&lease
+        tradein,
+        downpayment,
+        activeCreditScoreIndex,
+        activeCreditScoreIndexArray,
+        // loan
+        postcodeLoan = '',
+        postcodeLease = '',
+        activeLoanTermIndex,
+        activeLoanTermIndexArray,
+        apr,
+        // lease
+        activeLeaseTermIndex,
+        activeLeaseTermIndexArray,
+        activeMileagesIndex,
+        activeMileagesIndexArray,
+      } = this.state;
       if (!stateMsrp && propsMsrp) {
         this.state.msrp = propsMsrp;
       }
-      this.saveToStorage();
-      children = (
+      const { msrp } = this.state;
+      calculationError = this.generateErrorDiv(this.validateData());
+      const quarterMsrp = `${msrp / 4}`;
+      mainBody = (
         <div className="calc">
           <ToolBar
             buttonNames={[
@@ -242,72 +236,80 @@ export default class CalcBody extends React.Component {
             ]}
             activeButtonIndex={activePageIndex}
             onButtonClick={this.onToolButtonClick}
-            toolBarClassname="toolbar"
+            className="toolbar"
             subClassNames="pageview"
-            indexAttribute="activePageIndex"
+            index="activePageIndex"
+            wrapperClassName=""
           />
           <div className={`mainbody loan${activePageIndex !== 0 ? ' hidden' : ''}`}>
             <div className="column">
               <SmartInput
                 id="postcodeloan"
                 name="postcodeLoan"
-                text="Post Code"
+                headerText="Post Code"
                 placeholder="Enter post code"
-                defvalue={postcodeLoan}
+                value={postcodeLoan}
                 onChange={this.onInputChange}
               />
               <SmartInput
                 id="tradeinloan"
                 name="tradein"
-                text="Trade-In"
+                headerText="Trade-In"
                 placeholder="Trade-In value"
-                defvalue={tradein}
+                value={tradein}
                 maskStart={currency}
                 onChange={this.onInputChange}
-                inputType="number"
+                type="number"
                 pattern={REGEXP_NUMBERS_ONLY}
                 max={quarterMsrp}
+                min="0"
               />
               <SmartInput
                 id="downpaymentloan"
                 name="downpayment"
-                text="Down Payment"
+                headerText="Down Payment"
                 placeholder="Down payment"
-                defvalue={downpayment}
+                value={downpayment}
                 maskStart={currency}
                 onChange={this.onInputChange}
-                inputType="number"
+                type="number"
                 pattern={REGEXP_NUMBERS_ONLY}
                 max={quarterMsrp}
+                min="0"
               />
               <SmartInput
                 id="apr"
                 name="apr"
-                text="APR"
+                headerText="APR"
                 placeholder="APR"
-                defvalue={apr}
+                value={apr}
                 maskEnd="%"
                 onChange={this.onInputChange}
-                inputType="number"
+                type="number"
                 pattern={REGEXP_NUMBERS_ONLY}
+                min="0"
               />
               <ToolBar
                 buttonNames={activeLoanTermIndexArray}
                 activeButtonIndex={activeLoanTermIndex}
                 onButtonClick={this.onToolButtonClick}
                 id="termsloan"
-                indexAttribute="activeLoanTermIndex"
-                toolBarClassname="toolbar"
+                index="activeLoanTermIndex"
+                className="toolbar"
                 headerText="Terms"
+                wrapperClassName=""
+                headerClassName=""
               />
               <ToolBar
                 buttonNames={activeCreditScoreIndexArray}
                 activeButtonIndex={activeCreditScoreIndex}
                 onButtonClick={this.onToolButtonClick}
                 id="creditscoreloan"
-                indexAttribute="activeCreditScoreIndex"
-                toolBarClassname="toolbar"
+                index="activeCreditScoreIndex"
+                className="toolbar"
                 headerText="Credit Score"
+                wrapperClassName=""
+                headerClassName=""
               />
             </div>
           </div>
@@ -316,40 +318,42 @@ export default class CalcBody extends React.Component {
               <SmartInput
                 id="postcodelease"
                 name="postcodeLease"
-                text="Post Code"
+                headerText="Post Code"
                 placeholder="Enter post code"
-                defvalue={postcodeLease}
+                value={postcodeLease}
                 onChange={this.onInputChange}
               />
               <SmartInput
                 id="tradeinlease"
                 name="tradein"
-                text="Trade-In"
+                headerText="Trade-In"
                 placeholder="Trade-In value"
-                defvalue={tradein}
+                value={tradein}
                 maskStart={currency}
                 onChange={this.onInputChange}
-                inputType="number"
+                type="number"
                 pattern={REGEXP_NUMBERS_ONLY}
                 max={quarterMsrp}
+                min="0"
               />
               <SmartInput
                 id="downpaymentlease"
                 name="downpayment"
-                text="Down Payment"
+                headerText="Down Payment"
                 placeholder="Down payment"
-                defvalue={downpayment}
+                value={downpayment}
                 maskStart={currency}
                 onChange={this.onInputChange}
-                inputType="number"
+                type="number"
                 pattern={REGEXP_NUMBERS_ONLY}
                 max={quarterMsrp}
+                min="0"
               />
             </div>
             <div className="column">
               <SmartSelect
                 id="Terms"
-                text="Terms"
+                headerText="Terms"
                 values={activeLeaseTermIndexArray}
                 name="activeLeaseTermIndex"
                 activeOption={activeLeaseTermIndex}
@@ -357,7 +361,7 @@ export default class CalcBody extends React.Component {
               />
               <SmartSelect
                 id="Mileages"
-                text="Mileages"
+                headerText="Mileages"
                 values={activeMileagesIndexArray}
                 name="activeMileagesIndex"
                 activeOption={activeMileagesIndex}
@@ -365,7 +369,7 @@ export default class CalcBody extends React.Component {
               />
               <SmartSelect
                 id="creditscore"
-                text="Credit Score"
+                headerText="Credit Score"
                 values={activeCreditScoreIndexArray}
                 name="activeCreditScoreIndex"
                 activeOption={activeCreditScoreIndex}
@@ -378,7 +382,7 @@ export default class CalcBody extends React.Component {
     }
     return (
       <div className="calc">
-        {children}
+        {mainBody}
         {calculationError}
         {errorDiv}
       </div>

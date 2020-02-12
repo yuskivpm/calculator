@@ -1,5 +1,4 @@
 import React from 'react';
-import { setTimeout } from 'core-js';
 import InfoCard from './infocard';
 import CalcBody from './calc';
 import dataProviderApi from '../api/dataProviderApi';
@@ -11,17 +10,15 @@ export default class App extends React.Component {
   }
 
   componentDidMount() {
-    // Just a pause to test the spinner
-    setTimeout(() => {
-      dataProviderApi.promiseForMe(
-        dataProviderApi.fetchInfoCard,
-        userCard => this.setState(userCard),
-        err =>
-          this.setState({
-            infoCardError: err && err.infoCardError ? err.infoCardError : 'Fail fetching info card',
-          })
-      );
-    }, 2000);
+    dataProviderApi.fetchWithPause(
+      dataProviderApi.fetchInfoCard,
+      userCard => this.setState(userCard),
+      err =>
+        this.setState({
+          error: err && err.infoCardError ? err.infoCardError : 'Fail fetching info card',
+        }),
+      2000
+    );
   }
 
   updateInfoCard = updateObject => {
@@ -29,32 +26,15 @@ export default class App extends React.Component {
   };
 
   render() {
-    const {
-      msrp,
-      vehicleName,
-      dealerName,
-      dealerPhone,
-      dealerRating,
-      taxes,
-      payment,
-      infoCardError,
-      currency,
-    } = this.state;
+    const { msrp } = this.state;
+    /* eslint-disable */
+    // "Prop spreading is forbidden"
     return (
       <React.Fragment key="app">
-        <CalcBody onChange={this.updateInfoCard} msrp={parseFloat(msrp)} />
-        <InfoCard
-          msrp={parseFloat(msrp)}
-          vehicleName={vehicleName}
-          dealerName={dealerName}
-          dealerPhone={dealerPhone}
-          dealerRating={dealerRating}
-          taxes={taxes}
-          payment={payment}
-          error={infoCardError}
-          currency={currency}
-        />
+        <CalcBody onChange={this.updateInfoCard} msrp={msrp} />
+        <InfoCard {...this.state} />
       </React.Fragment>
     );
+    /* eslint-enable */
   }
 }
