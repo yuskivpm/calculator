@@ -3,10 +3,10 @@
 rc_school calculator
 
 
-1. задание - https://github.com/rolling-scopes-school/tasks/blob/master/tasks/calculator.md
+1. Task - https://github.com/rolling-scopes-school/tasks/blob/master/tasks/calculator.md
 
 
-2. демо - https://calculatoryuskiv.netlify.com/
+2. Demo - https://calculatoryuskiv.netlify.com/
 
 
 3. Score criteria: [Basic (70) + Normal (120) + Extra (40) - +230]
