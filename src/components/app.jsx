@@ -30,10 +30,10 @@ export default class App extends React.Component {
     /* eslint-disable */
     // "Prop spreading is forbidden"
     return (
-      <React.Fragment key="app">
-        <CalcBody onChange={this.updateInfoCard} msrp={msrp} />
+      <>
+        <CalcBody onChange={this.updateInfoCard} msrp={msrp}></CalcBody>
         <InfoCard {...this.state} />
-      </React.Fragment>
+      </>
     );
     /* eslint-enable */
   }

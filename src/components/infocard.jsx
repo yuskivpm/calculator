@@ -25,7 +25,7 @@ export default function InfoCard(props) {
   } else {
     const rndId = `id${Math.trunc(Math.random() * 1000000) + 1}`;
     children = (
-      <React.Fragment key="InfoCard">
+      <>
         <p className="msrp">
           MSRP
           <Spinner className="values">{dataProviderApi.getPayment(msrp, currency)}</Spinner>
@@ -49,7 +49,7 @@ export default function InfoCard(props) {
         <p className="dealerrating">
           <Rating rate={dealerRating} id={rndId} />
         </p>
-      </React.Fragment>
+      </>
     );
   }
   return <div className="infoCard">{children}</div>;

@@ -108,3 +108,15 @@
 .tabbutton.pressed.pageview {
     border-style: groove groove hidden groove;
 }
+
+@media only screen and (max-width: 650px){
+    #root{
+        flex-direction: column;
+    }
+    .mainbody{
+        flex-direction: column;
+    }
+    .column {
+        width: auto;
+    }
+}

@@ -228,7 +228,7 @@ export default class CalcBody extends React.Component {
       calculationError = this.generateErrorDiv(this.validateData());
       const quarterMsrp = `${msrp / 4}`;
       mainBody = (
-        <div className="calc">
+        <>
           <ToolBar
             buttonNames={[
               `Loan ${dataProviderApi.getPayment(payment[0], currency)}`,
@@ -377,7 +377,7 @@ export default class CalcBody extends React.Component {
               />
             </div>
           </div>
-        </div>
+        </>
       );
     }
     return (
